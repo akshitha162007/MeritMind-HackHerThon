@@ -6,9 +6,9 @@ export default function Stats() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCounters(prev => ({
-        diversity: prev.diversity < 30 ? prev.diversity + 1 : 30,
-        bias: prev.bias < 50 ? prev.bias + 2 : 50,
-        trust: prev.trust < 25 ? prev.trust + 1 : 25
+        diversity: prev.diversity < 30 ? prev.diversity + 1 : 50,
+        bias: prev.bias < 50 ? prev.bias + 2 : 80,
+        trust: prev.trust < 25 ? prev.trust + 1 : 60
       }));
     }, 30);
     return () => clearInterval(interval);

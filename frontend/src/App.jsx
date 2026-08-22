@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Stats from './components/Stats';
-import Features from './components/Features';
+// import Features from './components/Features';
 import HowItWorks from './components/HowItWorks';
 import CTABanner from './components/CTABanner';
 import Footer from './components/Footer';
@@ -17,7 +17,7 @@ function LandingPage() {
       <Navbar />
       <Hero />
       <Stats />
-      <Features />
+      {/* <Features /> */}
       <HowItWorks />
       <CTABanner />
       <Footer />

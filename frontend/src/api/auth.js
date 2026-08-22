@@ -1,37 +1,84 @@
 import axios from 'axios';
 
-const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth`;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+const api = axios.create({
+  baseURL: API_BASE,
+  timeout: 45000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+const isTransientNetworkError = (error) => {
+  return error.code === 'ECONNABORTED' || !error.response;
+};
+
+const withOneRetry = async (requestFn) => {
+  try {
+    return await requestFn();
+  } catch (error) {
+    if (!isTransientNetworkError(error)) {
+      throw error;
+    }
+    return await requestFn();
+  }
+};
+
+api.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('API Error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      url: error.config?.url
+    });
+    return Promise.reject(error);
+  }
+);
 
 export const registerUser = async ({ name, email, password, role }) => {
   try {
-    console.log('Registering user:', { name, email, role });
-    const response = await axios.post(`${API_BASE}/register`, { name, email, password, role });
-    console.log('Registration response:', response.data);
+    const payload = {
+      name: (name || '').trim(),
+      email: (email || '').trim().toLowerCase(),
+      password,
+      role: role || 'recruiter'
+    };
+    
+    const response = await withOneRetry(() => api.post('/api/auth/register', payload));
     return response.data;
   } catch (error) {
-    console.error('Registration error:', error.response?.data || error.message);
-    throw new Error(error.response?.data?.detail || 'Registration failed');
+    const errorMsg = error.response?.data?.detail || error.message || 'Registration failed';
+    throw new Error(errorMsg);
   }
 };
 
 export const loginUser = async ({ email, password }) => {
   try {
-    console.log('Logging in user:', email);
-    const response = await axios.post(`${API_BASE}/login`, { email, password });
-    console.log('Login response:', response.data);
+    const payload = {
+      email: (email || '').trim().toLowerCase(),
+      password
+    };
+    
+    const response = await withOneRetry(() => api.post('/api/auth/login', payload));
     return response.data;
   } catch (error) {
-    console.error('Login error:', error.response?.data || error.message);
-    throw new Error(error.response?.data?.detail || 'Login failed');
+    const errorMsg = error.response?.data?.detail || error.message || 'Login failed';
+    throw new Error(errorMsg);
   }
 };
 
 export const logoutUser = async (token) => {
   try {
-    const response = await axios.post(`${API_BASE}/logout?token=${token}`);
+    const response = await api.post(
+      '/api/auth/logout',
+      { token },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
     return response.data;
   } catch (error) {
-    console.error('Logout error:', error.response?.data || error.message);
-    throw new Error(error.response?.data?.detail || 'Logout failed');
+    return { ok: true };
   }
 };

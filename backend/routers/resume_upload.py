@@ -23,7 +23,10 @@ def get_user_from_token(authorization: str = Header(None), db: Session = Depends
         raise HTTPException(status_code=401, detail="Missing or invalid token")
     
     token = authorization.replace("Bearer ", "")
-    session = db.query(UserSession).filter(UserSession.token == token).first()
+    session = db.query(UserSession).filter(
+        UserSession.token == token,
+        UserSession.expires_at > datetime.utcnow()
+    ).first()
     
     if not session:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -51,11 +54,18 @@ def get_or_create_candidate(candidate_id: str, db: Session):
 
 
 @router.post("/api/resume/submit-text")
-def submit_text(req: SubmitTextRequest, db: Session = Depends(get_db)):
+def submit_text(
+    req: SubmitTextRequest,
+    user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     """Submit resume as plain text"""
     try:
         if not req.text or not req.text.strip():
             raise HTTPException(status_code=400, detail="Resume text cannot be empty")
+
+        if user.role != "candidate" or str(user.id) != req.candidate_id:
+            raise HTTPException(status_code=403, detail="Candidates can only submit their own resume")
 
         candidate = get_or_create_candidate(req.candidate_id, db)
         if not candidate:
@@ -107,11 +117,19 @@ def submit_text(req: SubmitTextRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/api/resume/submit-pdf")
-async def submit_pdf(candidate_id: str = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def submit_pdf(
+    candidate_id: str = Form(...),
+    file: UploadFile = File(...),
+    user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     """Submit resume as PDF"""
     try:
         if file.content_type != "application/pdf":
             raise HTTPException(status_code=400, detail="Only PDF files accepted")
+
+        if user.role != "candidate" or str(user.id) != candidate_id:
+            raise HTTPException(status_code=403, detail="Candidates can only submit their own resume")
 
         candidate = get_or_create_candidate(candidate_id, db)
         if not candidate:
@@ -167,11 +185,19 @@ async def submit_pdf(candidate_id: str = Form(...), file: UploadFile = File(...)
 
 
 @router.post("/api/resume/submit-image")
-async def submit_image(candidate_id: str = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def submit_image(
+    candidate_id: str = Form(...),
+    file: UploadFile = File(...),
+    user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     """Submit resume as image (JPG/PNG)"""
     try:
         if file.content_type not in ["image/jpeg", "image/jpg", "image/png"]:
             raise HTTPException(status_code=400, detail="Only JPG/PNG images accepted")
+
+        if user.role != "candidate" or str(user.id) != candidate_id:
+            raise HTTPException(status_code=403, detail="Candidates can only submit their own resume")
 
         candidate = get_or_create_candidate(candidate_id, db)
         if not candidate:
@@ -227,9 +253,16 @@ async def submit_image(candidate_id: str = Form(...), file: UploadFile = File(..
 
 
 @router.get("/api/resume/candidate/{candidate_id}")
-def get_candidate_resume(candidate_id: str, db: Session = Depends(get_db)):
+def get_candidate_resume(
+    candidate_id: str,
+    user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     """Get candidate's resume status (candidate view - no parsed data)"""
     try:
+        if user.role != "candidate" or str(user.id) != candidate_id:
+            raise HTTPException(status_code=403, detail="Candidates can only view their own resume status")
+
         resume = db.query(Resume).filter(Resume.candidate_id == candidate_id).order_by(desc(Resume.created_at)).first()
         
         if not resume:

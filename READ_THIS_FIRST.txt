@@ -1,0 +1,90 @@
+TIMEOUT ERROR FIX - EXACT STEPS
+================================
+
+YOUR PROBLEM:
+"timeout of 15000ms exceeded" when trying to login/signup
+
+ROOT CAUSE:
+Backend server is not running on port 8000
+
+SOLUTION:
+Start the backend server in a new terminal
+
+================================
+
+STEP 1: Open New Command Prompt
+- Press: Win + R
+- Type: cmd
+- Press: Enter
+
+STEP 2: Copy and Paste This Command
+cd d:\Projects\GitHubProjects\merit-mind-1\backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+STEP 3: Press Enter
+
+STEP 4: Wait for This Message
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Application startup complete
+
+STEP 5: Keep Terminal Open
+DO NOT CLOSE THIS TERMINAL!
+
+STEP 6: Go to Browser
+Open: http://localhost:5177
+
+STEP 7: Try Login/Signup
+Should work now without timeout!
+
+================================
+
+IF YOU GET AN ERROR:
+
+Error: "ModuleNotFoundError"
+Solution: Run this first:
+  cd d:\Projects\GitHubProjects\merit-mind-1\backend
+  python check_deps.py
+
+Error: "Port 8000 already in use"
+Solution: Run this:
+  netstat -ano | findstr :8000
+  taskkill /PID <PID> /F
+
+Error: Still getting timeout
+Solution: Check if backend terminal shows "Uvicorn running"
+  If not, the server didn't start
+  Look for error messages in the terminal
+
+================================
+
+IMPORTANT:
+- Keep backend terminal open while using the app
+- Keep frontend terminal open while using the app
+- Both must be running at the same time
+- If you close backend terminal, app will timeout
+
+================================
+
+QUICK REFERENCE:
+
+Terminal 1 (Backend):
+cd d:\Projects\GitHubProjects\merit-mind-1\backend
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+Terminal 2 (Frontend - already running):
+Should show: Local: http://localhost:5177
+
+Terminal 3 (Test):
+curl http://localhost:8000/api/health
+
+================================
+
+SUCCESS INDICATORS:
+✓ Backend terminal shows: "Uvicorn running on http://0.0.0.0:8000"
+✓ Frontend terminal shows: "Local: http://localhost:5177"
+✓ http://localhost:8000/api/health returns JSON
+✓ Signup/login completes in < 2 seconds
+✓ No timeout errors
+
+================================
+
+THAT'S IT! Your app should now work! 🎉

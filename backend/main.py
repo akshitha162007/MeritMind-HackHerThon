@@ -3,13 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import bcrypt
+from typing import Optional
 from database import get_db
 from models import User, Session as UserSession, Candidate, FairnessAuditLog, Resume, JobDescription
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from routers import silence_rank as silence_rank_router
 from routers import emotion_blind as emotion_blind_router
 from routers import resume_upload as resume_upload_router
+from routers import bias_detection as bias_detection_router
+from routers import job_rewriter as job_rewriter_router
+from routers import certificate as certificate_router
 import math
 import random
 from agents.counterfactual_agent import (
@@ -31,8 +35,8 @@ app = FastAPI(title="Merit Mind API")
 
 app.add_middleware(
     CORSMiddleware,
-    # frontend dev server may run on any localhost port; allow all localhost origins
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:5177", "http://localhost:5178", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:5177", "http://localhost:5178", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,26 +71,35 @@ class AuthResponse(BaseModel):
 
 @app.post("/api/auth/register", response_model=AuthResponse)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == req.email).first()
+    email = (req.email or "").strip().lower()
+    name = (req.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    if len(req.password or "") < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
     if req.role not in ("recruiter", "candidate"):
         raise HTTPException(status_code=400, detail="role must be 'recruiter' or 'candidate'")
     user = User(
-        name=req.name,
-        email=req.email,
+        name=name,
+        email=email,
         password_hash=hash_password(req.password),
         role=req.role,
     )
     db.add(user)
     db.flush()
     if req.role == "candidate":
-        db.add(Candidate(id=user.id, name=req.name, email=req.email))
+        db.add(Candidate(id=user.id, name=name, email=email))
     token = str(uuid.uuid4())
     session = UserSession(
         user_id=user.id,
         token=token,
-        expires_at=datetime.utcnow() + timedelta(days=7),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
     )
     db.add(session)
     db.commit()
@@ -94,21 +107,31 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login", response_model=AuthResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == req.email).first()
+    email = (req.email or "").strip().lower()
+    user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = str(uuid.uuid4())
     session = UserSession(
         user_id=user.id,
         token=token,
-        expires_at=datetime.utcnow() + timedelta(days=7),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
     )
     db.add(session)
     db.commit()
     return AuthResponse(token=token, user_id=str(user.id), name=user.name, email=user.email, role=user.role)
 
 @app.post("/api/auth/logout")
-def logout(token: str, db: Session = Depends(get_db)):
+def logout(
+    token: Optional[str] = None,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing token")
+
     db.query(UserSession).filter(UserSession.token == token).delete()
     db.commit()
     return {"ok": True}
@@ -125,7 +148,7 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     token = authorization.split(" ", 1)[1]
     session = db.query(UserSession).filter(
         UserSession.token == token,
-        UserSession.expires_at > datetime.utcnow()
+        UserSession.expires_at > datetime.now(timezone.utc)
     ).first()
     if not session:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
@@ -145,6 +168,9 @@ def health_check():
 app.include_router(silence_rank_router.router)
 app.include_router(emotion_blind_router.router)
 app.include_router(resume_upload_router.router)
+app.include_router(bias_detection_router.router)
+app.include_router(job_rewriter_router.router)
+app.include_router(certificate_router.router)
 
 # ── Simulator Schemas ─────────────────────────────────────────
 
@@ -775,6 +801,27 @@ class SkillEvaluationRequest(BaseModel):
     candidate_id: str
     job_id: str
 
+
+SKILL_GRAPH_DUMMY_JOBS = [
+    {
+        "id": "dummy-data-analyst",
+        "title": "Data Analyst",
+        "required_skills": ["Data Analysis", "SQL", "Python", "Excel"]
+    },
+    {
+        "id": "dummy-backend-engineer",
+        "title": "Backend Engineer",
+        "required_skills": ["FastAPI", "Python", "SQL", "Docker"]
+    },
+    {
+        "id": "dummy-product-analyst",
+        "title": "Product Analyst",
+        "required_skills": ["Business Analytics", "SQL", "Project Management", "Data Analysis"]
+    }
+]
+
+SKILL_GRAPH_DUMMY_JOB_MAP = {job["id"]: job for job in SKILL_GRAPH_DUMMY_JOBS}
+
 class SkillEvaluationResponse(BaseModel):
     candidate_id: str
     job_id: str
@@ -784,8 +831,36 @@ class SkillEvaluationResponse(BaseModel):
     matched_count: int
     total_required: int
 
+
+@app.get("/api/skills/jobs")
+def get_skill_graph_dummy_jobs(current_user: User = Depends(get_current_user)):
+    return [{"id": job["id"], "title": job["title"]} for job in SKILL_GRAPH_DUMMY_JOBS]
+
 @app.post("/api/skills/evaluate", response_model=SkillEvaluationResponse)
 def evaluate_skills(req: SkillEvaluationRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if req.job_id in SKILL_GRAPH_DUMMY_JOB_MAP:
+        candidate_data = {
+            "skills": ["Python", "SQL", "Business Analytics", "Excel", "FastAPI", "Project Management"],
+            "parsed_json": None
+        }
+        job_data = {
+            "required_skills": SKILL_GRAPH_DUMMY_JOB_MAP[req.job_id]["required_skills"]
+        }
+
+        candidate_skills = extract_candidate_skills(candidate_data)
+        job_skills = extract_job_requirements(job_data)
+        result = evaluate_skill_match(candidate_skills, job_skills)
+
+        return SkillEvaluationResponse(
+            candidate_id=req.candidate_id,
+            job_id=req.job_id,
+            skill_score=result["skill_score"],
+            matched_skills=result["matched_skills"],
+            skill_details=result["skill_details"],
+            matched_count=result["matched_count"],
+            total_required=result["total_job_skills"]
+        )
+
     # Fetch candidate
     candidate = db.query(Candidate).filter(Candidate.id == uuid.UUID(req.candidate_id)).first()
     if not candidate:

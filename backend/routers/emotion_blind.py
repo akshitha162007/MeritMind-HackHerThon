@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Application, Candidate, JobDescription, EmotionBlindScore
+from models import Application, Candidate, JobDescription, EmotionBlindScore, User, Session as UserSession
 from agents.emotion_blind import run_emotion_blind_analysis
 from pydantic import BaseModel
 import uuid
@@ -14,40 +14,52 @@ class CandidateTranscript(BaseModel):
     transcript: str
 
 class EmotionBlindRequest(BaseModel):
-    jd_id: str
+    jd_text: str
     candidates: list
 
+
+def get_user_from_token(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    token = authorization.replace("Bearer ", "")
+    session = db.query(UserSession).filter(
+        UserSession.token == token,
+        UserSession.expires_at > datetime.utcnow()
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.id == session.user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user
+
 @router.post("/analyze")
-def analyze_emotion_blind(request: EmotionBlindRequest, db: Session = Depends(get_db)):
+def analyze_emotion_blind(
+    request: EmotionBlindRequest,
+    current_user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     try:
-        jd_id = request.jd_id
+        jd_text = request.jd_text
         candidates_input = request.candidates
         
-        if jd_id.startswith("dummy-"):
-            jd_text = "Software Engineer role requiring Python, FastAPI, PostgreSQL, and system design experience"
-        else:
-            jd = db.query(JobDescription).filter(JobDescription.id == jd_id).first()
-            if not jd:
-                raise HTTPException(status_code=404, detail="Job description not found")
-            jd_text = jd.raw_text or ""
+        if not jd_text or not jd_text.strip():
+            raise HTTPException(status_code=400, detail="Job description text is required")
         
         candidates_data = []
-        for candidate_input in candidates_input:
-            app_id = candidate_input.get("application_id")
+        for idx, candidate_input in enumerate(candidates_input):
             transcript = candidate_input.get("transcript", "")
             
-            if app_id.startswith("dummy-"):
-                blind_id = app_id
-            else:
-                app = db.query(Application).filter(Application.id == app_id).first()
-                if not app:
-                    continue
-                
-                candidate = db.query(Candidate).filter(Candidate.id == app.candidate_id).first()
-                if not candidate:
-                    continue
-                
-                blind_id = candidate.blind_id
+            if not transcript or not transcript.strip():
+                continue
+            
+            # Use index as blind_id for candidates without database records (direct text input)
+            blind_id = candidate_input.get("blind_id") or f"Candidate {idx + 1}"
+            app_id = candidate_input.get("application_id") or f"temp-{idx}"
             
             candidates_data.append({
                 "application_id": app_id,
@@ -61,8 +73,9 @@ def analyze_emotion_blind(request: EmotionBlindRequest, db: Session = Depends(ge
         
         results = run_emotion_blind_analysis(candidates_data)
         
+        # Only save to database if application_ids are real (not temp)
         for result in results:
-            if not result["application_id"].startswith("dummy-"):
+            if not result["application_id"].startswith("temp-"):
                 existing = db.query(EmotionBlindScore).filter(
                     EmotionBlindScore.application_id == result["application_id"]
                 ).first()
@@ -92,7 +105,6 @@ def analyze_emotion_blind(request: EmotionBlindRequest, db: Session = Depends(ge
         
         return {
             "status": "success",
-            "jd_id": jd_id,
             "results": results
         }
     
@@ -103,7 +115,11 @@ def analyze_emotion_blind(request: EmotionBlindRequest, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/results/{jd_id}")
-def get_emotion_blind_results(jd_id: str, db: Session = Depends(get_db)):
+def get_emotion_blind_results(
+    jd_id: str,
+    current_user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     try:
         applications = db.query(Application).filter(Application.jd_id == jd_id).all()
         

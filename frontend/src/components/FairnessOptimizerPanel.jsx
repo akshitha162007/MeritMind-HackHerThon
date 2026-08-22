@@ -4,6 +4,16 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import axios from 'axios';
 
 export default function FairnessOptimizerPanel() {
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const normalizeJobs = (rawJobs) => (
+    (Array.isArray(rawJobs) ? rawJobs : [])
+      .map((job) => {
+        const id = job?.id ?? job?.jd_id ?? job?.job_id ?? job?.jobId ?? job?.uuid;
+        const title = job?.title ?? job?.job_title ?? job?.jd_title ?? job?.name;
+        return id ? { id: String(id), title: title || `Job ${id}` } : null;
+      })
+      .filter(Boolean)
+  );
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
   const [jobs, setJobs] = useState([]);
@@ -27,11 +37,12 @@ export default function FairnessOptimizerPanel() {
   const fetchJobs = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:8000/api/fairness/jobs', {
+      const res = await axios.get(`${apiBaseUrl}/api/fairness/jobs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setJobs(res.data);
-      if (res.data.length > 0) setSelectedJob(res.data[0].id);
+      const normalizedJobs = normalizeJobs(res.data);
+      setJobs(normalizedJobs);
+      if (normalizedJobs.length > 0) setSelectedJob(normalizedJobs[0].id);
     } catch (err) {
       console.error(err);
     }
@@ -41,7 +52,7 @@ export default function FairnessOptimizerPanel() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:8000/api/fairness/my-report', {
+      const res = await axios.get(`${apiBaseUrl}/api/fairness/my-report`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCandidateReport(res.data);
@@ -56,7 +67,7 @@ export default function FairnessOptimizerPanel() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:8000/api/fairness/optimize', {
+      const res = await axios.post(`${apiBaseUrl}/api/fairness/optimize`, {
         jd_id: selectedJob,
         constraints
       }, {
@@ -74,7 +85,7 @@ export default function FairnessOptimizerPanel() {
   const fetchHistory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:8000/api/fairness/history?jd_id=${selectedJob}`, {
+      const res = await axios.get(`${apiBaseUrl}/api/fairness/history?jd_id=${selectedJob}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setHistory(res.data);

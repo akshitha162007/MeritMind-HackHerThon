@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import useAuth from '../hooks/useAuth';
 
 export default function SkillIntelligence({ candidateId, jobId }) {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -13,7 +11,7 @@ export default function SkillIntelligence({ candidateId, jobId }) {
     setError(null);
     
     try {
-      const token = user?.token;
+      const token = localStorage.getItem('token');
       const response = await fetch(`${apiBaseUrl}/api/skills/evaluate`, {
         method: 'POST',
         headers: {
@@ -32,20 +30,8 @@ export default function SkillIntelligence({ candidateId, jobId }) {
       setResult(data);
     } catch (err) {
       console.error('Skill evaluation error:', err);
-      // fallback dummy result for demo purposes if backend unavailable
-      const dummy = {
-        skill_score: 0.78,
-        matched_skills: ['Python', 'SQL'],
-        skill_details: [
-          { job_skill: 'Data Analysis', candidate_skill: 'Business Analytics', similarity: 0.85 },
-          { job_skill: 'SQL', candidate_skill: 'SQL', similarity: 1.0 }
-        ],
-        matched_count: 2,
-        total_required: 5
-      };
-      setResult(dummy);
-      // keep the error displayed as well so devs know
-      setError('Using fallback data (backend unavailable)');
+      setResult(null);
+      setError(err.message || 'Failed to evaluate skills');
     } finally {
       setLoading(false);
     }

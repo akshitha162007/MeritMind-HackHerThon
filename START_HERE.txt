@@ -1,0 +1,106 @@
+# 🎯 START HERE
+
+## Your login/signup timeout issue is FIXED! ✅
+
+---
+
+## ⚡ Quick Start (30 seconds)
+
+### Windows
+**Double-click:** `START_ALL.bat`
+
+Then open: http://localhost:5173
+
+### Mac/Linux
+```bash
+# Terminal 1
+cd backend
+python3 start_backend.py
+
+# Terminal 2
+cd frontend
+npm run dev
+```
+
+Then open: http://localhost:5173
+
+---
+
+## 🧪 Test It
+
+1. Go to http://localhost:5173
+2. Click "Sign Up"
+3. Fill in:
+   - Name: `Test User`
+   - Email: `test@example.com`
+   - Password: `password123`
+   - Role: `Recruiter`
+4. Click "Sign Up"
+
+**Expected:** Account created, no timeout errors ✓
+
+---
+
+## 📚 Need Help?
+
+| Question | Answer |
+|----------|--------|
+| How do I start? | Read `STARTUP_SCRIPTS_README.md` |
+| Step-by-step? | Read `VISUAL_STARTUP_GUIDE.md` |
+| Getting errors? | Read `QUICK_FIX.md` |
+| Complete guide? | Read `STARTUP_GUIDE_COMPLETE.md` |
+| All guides? | Read `DOCUMENTATION_INDEX.md` |
+
+---
+
+## ✅ Verify It's Working
+
+### Check Backend
+Open: http://localhost:8000/api/health
+
+Should see:
+```json
+{"status": "ok", "message": "Merit Mind backend is running!"}
+```
+
+### Check Frontend
+Open: http://localhost:5173
+
+Should see: Login/Signup page
+
+---
+
+## 🐛 Common Issues
+
+| Issue | Fix |
+|-------|-----|
+| "timeout of 15000ms exceeded" | Run `python start_backend.py` in backend folder |
+| "Cannot connect to localhost:8000" | Make sure backend is running |
+| "Cannot connect to localhost:5173" | Make sure frontend is running |
+
+---
+
+## 📖 All Guides
+
+```
+STARTUP_SCRIPTS_README.md       ← Overview (2 min)
+QUICK_FIX.md                    ← Quick reference (3 min)
+VISUAL_STARTUP_GUIDE.md         ← Step-by-step (5 min)
+LOGIN_SIGNUP_TIMEOUT_FIX.md     ← Troubleshooting (10 min)
+STARTUP_GUIDE_COMPLETE.md       ← Complete setup (15 min)
+DOCUMENTATION_INDEX.md          ← All guides index
+```
+
+---
+
+## 🚀 Ready?
+
+**Windows:** Double-click `START_ALL.bat`
+
+**Mac/Linux:** Follow `VISUAL_STARTUP_GUIDE.md`
+
+Then open http://localhost:5173
+
+---
+
+**That's it! Your application is ready to use.** 🎉

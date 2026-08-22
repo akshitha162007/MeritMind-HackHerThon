@@ -6,6 +6,9 @@ import ResumesPanel from './ResumesPanel';
 import FairnessOptimizerPanel from './FairnessOptimizerPanel';
 import FairnessAudit from './FairnessAudit';
 import ReverseBiasSimulator from './ReverseBiasSimulator';
+import BiasDetectionPanel from './BiasDetectionPanel';
+import CandidateBiasView from './CandidateBiasView';
+import JobRewritingAgent from './JobRewritingAgent';
 import SkillEvaluationPage from '../pages/SkillEvaluationPage';
 import { silenceRankDummyData } from '../config/silenceRankDummyData';
 import { emotionBlindDummyData } from '../config/emotionBlindDummyData';
@@ -13,11 +16,12 @@ import { emotionBlindDummyData } from '../config/emotionBlindDummyData';
 export default function Dashboard({ user, onLogout }) {
   const isRecruiter = user.role === 'recruiter';
   const [activeSection, setActiveSection] = useState(
-    isRecruiter ? 'fairness-optimizer' : 'dashboard'
+    isRecruiter ? 'job-rewriting' : 'dashboard'
   );
 
   const recruiterFeatures = [
-    { key: 'fairness-audit', label: 'Fairness Audit' },
+    { key: 'job-rewriting', label: 'Job Rewriting Agent' },
+    { key: 'bias-detection', label: 'Bias Detection' },
     { key: 'fairness-optimizer', label: 'Fairness Optimizer' },
     { key: 'reverse-bias-simulator', label: 'Reverse Bias Simulator' },
     { key: 'silence-rank', label: 'Silence Rank' },
@@ -29,15 +33,24 @@ export default function Dashboard({ user, onLogout }) {
   const candidateFeatures = [
     { key: 'resume-upload', label: 'Resume Upload' },
     { key: 'fairness-audit', label: 'Fairness Audit' },
-    { key: 'pipeline-status', label: 'Pipeline Status' },
-    { key: 'skill-graph', label: 'Skill Graph' },
-    { key: 'emotion-blind', label: 'EmotionBlind' },
     { key: 'dashboard', label: 'Overview' }
   ];
 
   const sidebarItems = isRecruiter ? recruiterFeatures : candidateFeatures;
 
   const renderPanel = () => {
+    if (activeSection === 'job-rewriting' && isRecruiter) {
+      return <JobRewritingAgent user={user} />;
+    }
+
+    if (activeSection === 'bias-detection' && isRecruiter) {
+      return <BiasDetectionPanel />;
+    }
+
+    if (activeSection === 'bias-fairness' && !isRecruiter) {
+      return <CandidateBiasView />;
+    }
+
     if (activeSection === 'silence-rank') {
       return (
         <SilenceRankPanel
@@ -81,7 +94,7 @@ export default function Dashboard({ user, onLogout }) {
       return <ReverseBiasSimulator />;
     }
 
-    if (activeSection === 'skill-graph') {
+    if (activeSection === 'skill-graph' && isRecruiter) {
       return <SkillEvaluationPage />;
     }
 

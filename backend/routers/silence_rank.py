@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Application, Resume, Candidate, JobDescription, SilenceRankResult
+from models import Application, Resume, Candidate, JobDescription, SilenceRankResult, User, Session as UserSession
 from agents.silence_rank import run_silence_rank
 from pydantic import BaseModel
 import uuid
@@ -13,8 +13,32 @@ class SilenceRankRequest(BaseModel):
     jd_id: str
     application_ids: list
 
+
+def get_user_from_token(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    token = authorization.replace("Bearer ", "")
+    session = db.query(UserSession).filter(
+        UserSession.token == token,
+        UserSession.expires_at > datetime.utcnow()
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.id == session.user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user
+
 @router.post("/run")
-def run_silence_rank_analysis(request: SilenceRankRequest, db: Session = Depends(get_db)):
+def run_silence_rank_analysis(
+    request: SilenceRankRequest,
+    current_user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     try:
         jd_id = request.jd_id
         application_ids = request.application_ids
@@ -89,7 +113,11 @@ def run_silence_rank_analysis(request: SilenceRankRequest, db: Session = Depends
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/results/{jd_id}")
-def get_silence_rank_results(jd_id: str, db: Session = Depends(get_db)):
+def get_silence_rank_results(
+    jd_id: str,
+    current_user: User = Depends(get_user_from_token),
+    db: Session = Depends(get_db)
+):
     try:
         applications = db.query(Application).filter(Application.jd_id == jd_id).all()
         

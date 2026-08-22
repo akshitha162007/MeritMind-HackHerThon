@@ -9,12 +9,12 @@ const api = axios.create({
   }
 });
 
-export const analyzeEmotionBlind = async (jd_id, candidates) => {
+export const analyzeEmotionBlind = async (jd_text, candidates) => {
   try {
     const token = localStorage.getItem('token');
     const response = await api.post(
       '/api/emotion-blind/analyze',
-      { jd_id, candidates },
+      { jd_text, candidates },
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return response.data;

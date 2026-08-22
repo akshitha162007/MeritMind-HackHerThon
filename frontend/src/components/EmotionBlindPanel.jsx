@@ -1,12 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { analyzeEmotionBlind, checkEmotionBlindHealth } from '../api/emotionBlindApi';
 import { emotionBlindDummyData } from '../config/emotionBlindDummyData';
 
 export default function EmotionBlindPanel({ onBack, dummyData = emotionBlindDummyData }) {
   const fallbackData = dummyData || emotionBlindDummyData;
-  const [jobDescriptions, setJobDescriptions] = useState([]);
-  const [selectedJd, setSelectedJd] = useState(null);
-  const [candidates, setCandidates] = useState([]);
+  const defaultDemoTranscripts = useMemo(() => ({
+    'candidate-0': fallbackData.transcripts?.['candidate-0'] || fallbackData.transcripts?.['eb-c1'] || '',
+    'candidate-1': fallbackData.transcripts?.['candidate-1'] || fallbackData.transcripts?.['eb-c2'] || '',
+    'candidate-2': fallbackData.transcripts?.['candidate-2'] || fallbackData.transcripts?.['eb-c3'] || ''
+  }), [fallbackData]);
+  const defaultDemoResults = useMemo(() => (
+    fallbackData.analysisResultsByJD?.['dummy-jd'] ||
+    fallbackData.analysisResultsByJD?.[Object.keys(fallbackData.analysisResultsByJD || {})[0]] ||
+    []
+  ), [fallbackData]);
+  const [jobDescriptionText, setJobDescriptionText] = useState('');
   const [transcripts, setTranscripts] = useState({});
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,12 +24,11 @@ export default function EmotionBlindPanel({ onBack, dummyData = emotionBlindDumm
   const [showBanner, setShowBanner] = useState(true);
 
   const applyDummySeedData = useCallback(() => {
-    setJobDescriptions(fallbackData.jobDescriptions || []);
-    setSelectedJd(fallbackData.jobDescriptions?.[0]?.id || null);
-    setCandidates(fallbackData.candidates || []);
-    setTranscripts(fallbackData.transcripts || {});
+    const dummyJdText = fallbackData.dummyJdText || 'Software Engineer role requiring 5+ years of experience with Python, FastAPI, PostgreSQL, and system design. Must have strong problem-solving skills and experience with microservices architecture.';
+    setJobDescriptionText(dummyJdText);
+    setTranscripts(defaultDemoTranscripts);
     setIsDummyMode(true);
-  }, [fallbackData]);
+  }, [fallbackData, defaultDemoTranscripts]);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -36,8 +43,13 @@ export default function EmotionBlindPanel({ onBack, dummyData = emotionBlindDumm
   }, [applyDummySeedData]);
 
   const handleRunAnalysis = async () => {
-    if (!selectedJd) {
-      setError('Please select a job description');
+    if (!jobDescriptionText.trim()) {
+      setError('Please enter a job description');
+      return;
+    }
+
+    if (Object.values(transcripts).every(t => !t.trim())) {
+      setError('Please enter at least one candidate transcript');
       return;
     }
 
@@ -47,27 +59,36 @@ export default function EmotionBlindPanel({ onBack, dummyData = emotionBlindDumm
     try {
       if (isDummyMode) {
         setExpandedRow(null);
-        setResults(fallbackData.analysisResultsByJD?.[selectedJd] || []);
+        setResults(defaultDemoResults);
         return;
       }
 
-      const candidatesData = candidates.map(c => ({
-        application_id: c.id,
-        transcript: transcripts[c.id] || ''
-      }));
+      const candidatesData = Object.entries(transcripts)
+        .filter(([, transcript]) => transcript.trim())
+        .map(([candidateId, transcript]) => ({
+          application_id: candidateId,
+          blind_id: candidateId,
+          transcript
+        }));
 
-      const response = await analyzeEmotionBlind(selectedJd, candidatesData);
+      if (candidatesData.length === 0) {
+        setError('No valid transcripts to analyze');
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await analyzeEmotionBlind(jobDescriptionText, candidatesData);
       const backendResults = response.results || [];
       if (backendResults.length === 0) {
         setIsDummyMode(true);
-        setResults(fallbackData.analysisResultsByJD?.[selectedJd] || []);
+        setResults(defaultDemoResults);
       } else {
         setResults(backendResults);
       }
     } catch {
       setIsDummyMode(true);
       setError('Backend unavailable or empty. Showing demo values.');
-      setResults(fallbackData.analysisResultsByJD?.[selectedJd] || []);
+      setResults(defaultDemoResults);
     } finally {
       setIsLoading(false);
     }
@@ -142,35 +163,42 @@ export default function EmotionBlindPanel({ onBack, dummyData = emotionBlindDumm
       <p style={{ color: '#B8A9D9', marginBottom: '24px', fontSize: '0.95rem' }}>Evaluate candidates on semantic reasoning quality, free from emotional bias</p>
 
       <div style={{ marginBottom: '24px' }}>
-        <select
-          value={selectedJd || ''}
-          onChange={(e) => setSelectedJd(e.target.value)}
+        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: '#B8A9D9' }}>
+          Job Description *
+        </label>
+        <textarea
+          value={jobDescriptionText}
+          onChange={(e) => setJobDescriptionText(e.target.value)}
+          placeholder="Enter the job description to analyze against candidate responses..."
+          rows="6"
           style={{
-            padding: '10px 16px',
+            width: '100%',
+            padding: '12px',
             background: 'rgba(255, 255, 255, 0.07)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
             borderRadius: '8px',
             color: 'white',
-            width: '100%',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '0.9rem',
+            resize: 'vertical',
             marginBottom: '20px'
           }}
-        >
-          <option value="">Select Job Description</option>
-          {jobDescriptions.map(jd => (
-            <option key={jd.id} value={jd.id}>{jd.title} — {jd.company}</option>
-          ))}
-        </select>
+        />
+
+        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '12px', color: '#B8A9D9' }}>
+          Candidate Responses
+        </label>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-          {candidates.map(candidate => (
-            <div key={candidate.id} style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          {[0, 1, 2].map(idx => (
+            <div key={`candidate-${idx}`} style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: '#B8A9D9' }}>
-                {candidate.blind_id}
+                Candidate {idx + 1}
               </label>
               <textarea
-                value={transcripts[candidate.id] || ''}
-                onChange={(e) => setTranscripts(prev => ({ ...prev, [candidate.id]: e.target.value }))}
-                placeholder="Enter interview response transcript"
+                value={transcripts[`candidate-${idx}`] || ''}
+                onChange={(e) => setTranscripts(prev => ({ ...prev, [`candidate-${idx}`]: e.target.value }))}
+                placeholder="Enter interview response or candidate assessment..."
                 rows="4"
                 style={{
                   width: '100%',
@@ -187,7 +215,6 @@ export default function EmotionBlindPanel({ onBack, dummyData = emotionBlindDumm
             </div>
           ))}
         </div>
-
         <button
           onClick={handleRunAnalysis}
           disabled={isLoading}

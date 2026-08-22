@@ -4,6 +4,7 @@ import useAuth from '../hooks/useAuth';
 export default function TestFairness() {
   const { user } = useAuth();
   const token = user?.token;
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const [candidateId, setCandidateId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,7 +17,7 @@ export default function TestFairness() {
     setError(null);
     setResult(null);
     try {
-      const resp = await fetch('http://localhost:8000/api/fairness/check', {
+      const resp = await fetch(`${apiBaseUrl}/api/fairness/check`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

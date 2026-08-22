@@ -1,9 +1,43 @@
-import { useState } from 'react';
+ import { useEffect, useState } from 'react';
 import SkillIntelligence from '../components/SkillIntelligence';
 
 export default function SkillEvaluationPage() {
   const [candidateId, setCandidateId] = useState('');
   const [jobId, setJobId] = useState('');
+  const [jobs, setJobs] = useState([]);
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  useEffect(() => {
+    const normalizeJobs = (rawJobs) => (
+      (Array.isArray(rawJobs) ? rawJobs : [])
+        .map((job) => {
+          const id = job?.id ?? job?.jd_id ?? job?.job_id ?? job?.jobId ?? job?.uuid;
+          const title = job?.title ?? job?.job_title ?? job?.jd_title ?? job?.name;
+          return id ? { id: String(id), title: title || `Job ${id}` } : null;
+        })
+        .filter(Boolean)
+    );
+
+    const loadJobs = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${apiBaseUrl}/api/skills/jobs`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const normalizedJobs = normalizeJobs(data);
+        setJobs(normalizedJobs);
+        if (!jobId && normalizedJobs.length > 0) {
+          setJobId(normalizedJobs[0].id);
+        }
+      } catch {
+        setJobs([]);
+      }
+    };
+
+    loadJobs();
+  }, [apiBaseUrl, jobId]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#0D0B1E', padding: '32px' }}>
@@ -35,13 +69,18 @@ export default function SkillEvaluationPage() {
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#B8A9D9', marginBottom: '8px' }}>
                 Job ID
               </label>
-              <input
-                type="text"
+              <select
                 value={jobId}
                 onChange={(e) => setJobId(e.target.value)}
-                placeholder="Enter job UUID"
                 style={{ width: '100%', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', color: 'white', fontSize: '0.875rem' }}
-              />
+              >
+                {jobs.length === 0 && <option value="">No jobs available</option>}
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.title}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

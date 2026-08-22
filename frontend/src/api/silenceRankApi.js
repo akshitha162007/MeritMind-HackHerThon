@@ -11,9 +11,12 @@ const api = axios.create({
 
 export const runSilenceRank = async (jd_id, application_ids) => {
   try {
+    const token = localStorage.getItem('token');
     const response = await api.post('/api/silence-rank/run', {
       jd_id,
       application_ids
+    }, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
     return response.data;
   } catch (error) {
@@ -23,7 +26,10 @@ export const runSilenceRank = async (jd_id, application_ids) => {
 
 export const getSilenceRankResults = async (jd_id) => {
   try {
-    const response = await api.get(`/api/silence-rank/results/${jd_id}`);
+    const token = localStorage.getItem('token');
+    const response = await api.get(`/api/silence-rank/results/${jd_id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.detail || 'Failed to fetch SilenceRank results');

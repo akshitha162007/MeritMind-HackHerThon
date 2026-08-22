@@ -23,6 +23,11 @@ export default function RegisterPage({ onSignUpSuccess }) {
     e.preventDefault();
     setError('');
     
+    if (!formData.name || !formData.email || !formData.password) {
+      setError('Please fill in all fields');
+      return;
+    }
+    
     if (formData.password.length < 8) {
       setError('Password must be at least 8 characters');
       return;
@@ -31,8 +36,13 @@ export default function RegisterPage({ onSignUpSuccess }) {
     setLoading(true);
     try {
       const data = await registerUser(formData);
-      onSignUpSuccess(data);
-      navigate('/');
+      
+      if (data && data.token) {
+        onSignUpSuccess(data);
+        navigate('/');
+      } else {
+        setError('Invalid response from server');
+      }
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -43,14 +53,14 @@ export default function RegisterPage({ onSignUpSuccess }) {
   return (
     <div style={{ minHeight: '100vh', background: '#0D0B1E', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div className="glass-card" style={{ width: '100%', maxWidth: '420px', padding: '48px' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: '8px', textAlign: 'center' }}>Create Account</h1>
+        <h1 style={{ fontSize: '2rem', marginBottom: '8px', textAlign: 'center', color: 'white' }}>Create Account</h1>
         <p className="text-secondary" style={{ textAlign: 'center', marginBottom: '32px', fontSize: '0.95rem' }}>
           Join Merit Mind today
         </p>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>Full Name</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500, color: 'white' }}>Full Name</label>
             <input
               type="text"
               name="name"
@@ -58,12 +68,19 @@ export default function RegisterPage({ onSignUpSuccess }) {
               onChange={handleChange}
               placeholder="John Doe"
               required
-              style={{ width: '100%' }}
+              style={{ 
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'white'
+              }}
             />
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>Email</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500, color: 'white' }}>Email</label>
             <input
               type="email"
               name="email"
@@ -71,12 +88,19 @@ export default function RegisterPage({ onSignUpSuccess }) {
               onChange={handleChange}
               placeholder="you@example.com"
               required
-              style={{ width: '100%' }}
+              style={{ 
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'white'
+              }}
             />
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>Password</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500, color: 'white' }}>Password</label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -85,7 +109,15 @@ export default function RegisterPage({ onSignUpSuccess }) {
                 onChange={handleChange}
                 placeholder="Min 8 characters"
                 required
-                style={{ width: '100%', paddingRight: '40px' }}
+                style={{ 
+                  width: '100%',
+                  padding: '10px 12px',
+                  paddingRight: '40px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: 'white'
+                }}
               />
               <button
                 type="button"
@@ -98,15 +130,22 @@ export default function RegisterPage({ onSignUpSuccess }) {
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>Role</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500, color: 'white' }}>Role</label>
             <select
               name="role"
               value={formData.role}
               onChange={handleChange}
-              style={{ width: '100%' }}
+              style={{ 
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'white'
+              }}
             >
-              <option value="recruiter">Recruiter</option>
-              <option value="candidate">Candidate</option>
+              <option value="recruiter" style={{ background: '#0D0B1E', color: 'white' }}>Recruiter</option>
+              <option value="candidate" style={{ background: '#0D0B1E', color: 'white' }}>Candidate</option>
             </select>
           </div>
 
@@ -119,14 +158,24 @@ export default function RegisterPage({ onSignUpSuccess }) {
           <button
             type="submit"
             disabled={loading}
-            className="btn-gradient"
-            style={{ width: '100%', marginBottom: '20px' }}
+            style={{
+              width: '100%',
+              marginBottom: '20px',
+              padding: '12px',
+              borderRadius: '8px',
+              border: 'none',
+              background: loading ? 'rgba(123, 47, 255, 0.5)' : 'linear-gradient(135deg, #7B2FFF, #E91E8C)',
+              color: 'white',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease'
+            }}
           >
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', fontSize: '0.9rem' }}>
+        <p style={{ textAlign: 'center', fontSize: '0.9rem', color: '#B8A9D9' }}>
           Already have an account?{' '}
           <Link to="/login" style={{ color: '#E91E8C', textDecoration: 'none', fontWeight: 600 }}>
             Sign In

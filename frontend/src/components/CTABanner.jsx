@@ -8,7 +8,7 @@ export default function CTABanner() {
       <div className="container">
         <div className="glass-card" style={{ padding: '60px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(123, 47, 255, 0.15), rgba(233, 30, 140, 0.15))' }}>
           <h2 style={{ marginBottom: '24px' }}>
-            Ready to build a bias-free team?
+            Ready to get started?
           </h2>
           <button onClick={() => navigate('/register')} className="btn-gradient">
             Start for Free

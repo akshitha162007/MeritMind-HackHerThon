@@ -4,6 +4,15 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import axios from 'axios';
 
 export default function ReverseBiasSimulator() {
+  const normalizeJobs = (rawJobs) => (
+    (Array.isArray(rawJobs) ? rawJobs : [])
+      .map((job) => {
+        const id = job?.id ?? job?.jd_id ?? job?.job_id ?? job?.jobId ?? job?.uuid;
+        const title = job?.title ?? job?.job_title ?? job?.jd_title ?? job?.name;
+        return id ? { id: String(id), title: title || `Job ${id}` } : null;
+      })
+      .filter(Boolean)
+  );
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState('');
   const [profileCount, setProfileCount] = useState(100);
@@ -17,22 +26,23 @@ export default function ReverseBiasSimulator() {
   const [candLoading, setCandLoading] = useState(true);
   const [candError, setCandError] = useState('');
 
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
 
   useEffect(() => {
     if (token) {
-      axios.get('http://localhost:8000/api/fairness/jobs', {
+      axios.get(`${apiBaseUrl}/api/fairness/jobs`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => setJobs(res.data))
+      .then(res => setJobs(normalizeJobs(res.data)))
       .catch(err => console.error(err));
     }
   }, [token]);
 
   useEffect(() => {
     if (!results || historyLoaded) return;
-    axios.get(`http://localhost:8000/api/simulator/history?jd_id=${selectedJobId}`, {
+    axios.get(`${apiBaseUrl}/api/simulator/history?jd_id=${selectedJobId}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(r => {
@@ -44,7 +54,7 @@ export default function ReverseBiasSimulator() {
 
   useEffect(() => {
     if (role !== 'candidate') return;
-    axios.get('http://localhost:8000/api/simulator/my-pipeline-status', {
+    axios.get(`${apiBaseUrl}/api/simulator/my-pipeline-status`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(r => {
@@ -193,7 +203,7 @@ export default function ReverseBiasSimulator() {
     setResults(null);
     setLoading(true);
     
-    axios.post('http://localhost:8000/api/simulator/run', {
+    axios.post(`${apiBaseUrl}/api/simulator/run`, {
       jd_id: selectedJobId,
       profile_count: profileCount,
       axes: selectedAxes
