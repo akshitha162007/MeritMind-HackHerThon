@@ -72,8 +72,8 @@ This runs all diagnostics and tests.
 
 Make sure your `.env` file in the `backend` folder has:
 ```
-DATABASE_URL=postgresql://postgres.qhxhmsninmnfikoxzoih:akshitha2007@aws-1-ap-south-1.pooler.supabase.com:5432/postgres
-GROQ_API_KEY=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
+DATABASE_URL=api_key
+GROQ_API_KEY=api_key
 ```
 
 ## Common Issues
