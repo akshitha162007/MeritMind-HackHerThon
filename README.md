@@ -4,7 +4,7 @@
 
 MeritMind is an **Agentic AI recruitment platform** designed to make hiring more fair, transparent, and skill-focused. It helps recruiters identify and reduce bias throughout the recruitment process while keeping candidate evaluation centered on relevant qualifications.
 
-## 🚀 Key Features
+##  Key Features
 
 * **AI-Powered Resume Analysis** — Extracts and evaluates relevant candidate information from resumes.
 * **Bias Detection** — Identifies potential bias in job descriptions and candidate evaluation.
@@ -16,14 +16,14 @@ MeritMind is an **Agentic AI recruitment platform** designed to make hiring more
 * **SilenceRank** — Supports objective candidate ranking based on relevant qualifications.
 * **AI-Generated Insights** — Provides explanations and insights to support transparent hiring decisions.
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 **Frontend:** React, Vite, Tailwind CSS, Axios
 **Backend:** Python, FastAPI
 **AI:** Agentic AI, LLM-based analysis
 **Database:** PostgreSQL / Supabase
 
-## ⚙️ Getting Started
+##  Getting Started
 
 ### 1. Clone the repository
 
@@ -58,6 +58,6 @@ The backend API runs at:
 
 `http://localhost:8000`
 
-## 🎯 Objective
+## Objective
 
 MeritMind aims to help organizations build a **more objective, inclusive, and transparent recruitment process** by combining AI-driven analysis with fairness-focused evaluation.
